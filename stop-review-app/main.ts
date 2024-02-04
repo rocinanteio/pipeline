@@ -1,51 +1,55 @@
 import { io } from "npm:socket.io-client@4.7.2";
 import { processFlags } from "https://deno.land/x/flags_usage/mod.ts";
 import axiod from "https://deno.land/x/axiod/mod.ts";
+import {generateProjectName} from "../constants.ts";
 
 const options = {
   description: {
     api: "rocinante core service url",
     socket: "rocinante core wss url",
     name: "name of project",
-    version: "version of project",
+    image: "docker image of project",
+    appPort: "appPort of project",
   },
   argument: {
     api: "dir",
     socket: "dir",
     name: "dir",
-    version: "dir",
+    image: "dir",
+    appPort: "dir",
   },
-  string: ["api", "socket", "name", "version"],
+  string: ["api", "socket", "name", "image", "appPort"],
 };
 
-const { api, socket, name, version } = processFlags(Deno.args, options);
+const { api, socket, name, image, appPort } = processFlags(Deno.args, options);
 const socketConn = io(socket);
 
-enum TopicNames {
-  PROJECT_START = "PROJECT_START",
-}
 
-if (!name || !version || !socket) {
+
+if (!name || !image || !socket || !appPort) {
   console.error("some arguments missing!! please check you're arguments.");
   Deno.exit(1);
 }
 
 socketConn.on("connect", () => {
-  axiod.post(`${api}/projects/start`, {
-    name,
-    version,
+  axiod.post(`${api}/projects/stop/image`, undefined, {
+    params: {
+      name: generateProjectName(name),
+      image,
+      appPort
+    }
   })
-    .then((response) => {
-      //TODO Set env with returned host
-      console.log(response);
-      Deno.exit(1)
+    .then(() => {
+      setTimeout(() => {
+        Deno.exit(1)
+      }, 2000)
     })
     .catch((error) => {
       console.error(error.response.data);
       Deno.exit(1)
     });
 
-  socketConn.on(TopicNames.PROJECT_START, (data: string) => {
+  socketConn.on(name, (data: string) => {
     console.log("::: ", data);
   });
 });
